@@ -34,7 +34,7 @@ class Agent:
 		self.input_shape = input_shape
 		self.matrix_visualisation = {'empty' : 0, 'object' : 1, 'enemies' : 2, 'mario' : 3}
 		self.use_CNN = use_CNN
-		self.discount_factor = 0.75
+		self.discount_factor = 0.95
 		self.prev_actions = deque(maxlen = 200000)
 		self.own_moves = 0
 		self.actions = self.get_actions()
@@ -45,8 +45,9 @@ class Agent:
 		else:
 			self.model = self.get_NN(self.input_shape, self.nb_actions)
 		self.epsilon = 1.0
-		self.epsilon_min = 0.2
+		self.epsilon_min = 0.01
 		self.epsilon_decay = 0.995
+		self.episodes_run = 0
 
 	def get_NN(self, input_shape, nb_actions):
 		model = Sequential()
@@ -87,23 +88,20 @@ class Agent:
 
 	def get_modified_reward(self, reward, has_completed, prev_state, current_state, info, max_score = 3200):
 		unit_score = 100. / max_score
-		modified_reward = reward * 100 * unit_score
-		# import pdb;pdb.set_trace()
-		# if (modified_reward == 100.):
-		# 	return modified_reward
+		modified_reward = reward * unit_score
 		time_penalty_applied = False
 		enemy_penalty_applied = False
 		falling_penalty_applied = False
 		if (info['distance'] > 40):
 			if (len(np.where(current_state == self.matrix_visualisation['mario'])[0]) == 0):
-				modified_reward -= 15
+				modified_reward -= 150
 				falling_penalty_applied = True
 		try:
 			curr_y, curr_x = map(lambda x: x[0], np.where(current_state == self.matrix_visualisation['mario']))
 			prev_y, prev_x = map(lambda x: x[0], np.where(prev_state == self.matrix_visualisation['mario']))
 			modified_reward -= unit_score / 2. * (prev_y - curr_y)
 			if (prev_y == curr_y):
-				modified_reward -= unit_score / 2.
+				modified_reward -= unit_score
 			if (has_completed):
 				current_pos_mario_y, current_pos_mario_x = map(lambda x: list(x), np.where(current_state == self.matrix_visualisation['mario']))
 				current_pos_enemies_y, current_pos_enemies_x = map(lambda x: list(x), np.where(current_state == self.matrix_visualisation['enemies']))
@@ -111,11 +109,11 @@ class Agent:
 					for (enemy_pos_y, enemy_pos_x) in zip(current_pos_enemies_y, current_pos_enemies_x):
 						if (np.abs(mario_pos_x - enemy_pos_x) <= 1 and np.abs(mario_pos_y - enemy_pos_y) <= 1):
 							if (not enemy_penalty_applied):
-								modified_reward -= 15
+								modified_reward -= 150
 								enemy_penalty_applied = True
 				if (not enemy_penalty_applied):
 					if (not falling_penalty_applied):
-						modified_reward -= 15
+						modified_reward -= 150
 						time_penalty_applied = True
 		except:
 			pass
